@@ -1,33 +1,38 @@
-from flask import Flask, request
+from flask import Flask, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
-app = Flask(__name__)
-app.secret_key = 'random secret key!'
+import os
+
+app = Flask(__name__, static_folder='build')  # предполагается, что React собран в папке build
+app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Отдаём React‑приложение
+@app.route('/')
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
 
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory(app.static_folder, path)
+
+# Событие для подключения в комнату (например, для пары пользователей)
 @socketio.on('join')
-def join(message):
-    username = message['username']
-    room = message['room']
+def on_join(data):
+    room = data.get('room')
     join_room(room)
-    print('RoomEvent: {} has joined the room {}\n'.format(username, room))
-    emit('ready', {username: username}, to=room, skip_sid=request.sid)
+    emit('joined', {'msg': f'Joined room: {room}'}, room=room)
 
+# Передача сигнальных сообщений для WebRTC (SDP, ICE)
+@socketio.on('signal')
+def on_signal(data):
+    room = data.get('room')
+    emit('signal', data, room=room, include_self=False)
 
-@socketio.on('data')
-def transfer_data(message):
-    username = message['username']
-    room = message['room']
-    data = message['data']
-    print('DataEvent: {} has sent the data:\n {}\n'.format(username, data))
-    emit('data', data, to=room, skip_sid=request.sid)
-
-
-@socketio.on_error_default
-def default_error_handler(e):
-    print("Error: {}".format(e))
-    socketio.stop()
+# Передача команд для управления ESP (например, "toggle" для переключения светодиода)
+@socketio.on('esp_control')
+def on_esp_control(data):
+    room = data.get('room')
+    emit('esp_control', data, room=room, include_self=False)
 
 if __name__ == '__main__':
-    socketio.run(app, host="0.0.0.0", port=5000)
-
+    socketio.run(app, host='0.0.0.0', port=5000)
