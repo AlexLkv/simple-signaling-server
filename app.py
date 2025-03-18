@@ -1,6 +1,6 @@
 from flask import Flask, request
 from flask_socketio import SocketIO, emit, join_room
-
+import os
 app = Flask(__name__)
 app.secret_key = 'random secret key!'
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -31,5 +31,5 @@ def default_error_handler(e):
 
 
 if __name__ == '__main__':
- port = int(os.environ.get("PORT", 5004))
-socketio.run(app, host="0.0.0.0", port=port)
+    port = int(os.environ.get("PORT", 5004))
+    socketio.run(app, host="0.0.0.0", port=port)
